@@ -1,0 +1,64 @@
+version: "3.0"
+services:
+  logstash_pdf:
+    build: container/logstash
+    environment:
+      CONFIG_RELOAD_AUTOMATIC: "true"
+    volumes:
+      - ./pipeline/load_pdf.conf:/usr/share/logstash/pipeline/logstash.conf
+    links:
+      - elasticsearch
+      - teiid
+
+  logstash_products:
+    build: container/logstash
+    environment:
+      CONFIG_RELOAD_AUTOMATIC: "true"
+    volumes:
+      - ./pipeline/load_products.conf:/usr/share/logstash/pipeline/logstash.conf
+    links:
+      - elasticsearch
+      - database
+
+
+  elasticsearch:
+    build: container/elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      http.host: 0.0.0.0
+      transport.host: 127.0.0.1
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:5.6.2
+    ports:
+      - "5601:5601"
+    links:
+      - elasticsearch
+#    environment:
+#      XPACK_MONITORING_ENABLED: "false"
+
+
+  database:
+    image: postgres:latest
+    ports:
+      - "5532:5432"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./container/schema/:/docker-entrypoint-initdb.d/
+
+  teiid:
+    build: container/teiid
+    ports:
+      - "32000:31000"
+      - "9999:9990"
+    environment:
+      JAVA_OPTS: '-Xms64m -Xmx512m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m -Djava.net.preferIPv4Stack=true
+                -Djboss.modules.system.pkgs=org.jboss.byteman -Djava.awt.headless=true -Dorg.teiid.maxStringLength=1000000'
+    volumes:
+      - ./pdf/:/pdf/
+
